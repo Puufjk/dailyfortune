@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Fortune Card｜每日運勢抽卡</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#090b16;--panel:#12162a;--text:#f5f7ff;--muted:#aeb5d4;--accent:#8d7cff;--gold:#ffd86b}
+body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:var(--text);background:radial-gradient(circle at 20% 10%,#30236b 0,transparent 30%),radial-gradient(circle at 80% 90%,#153d68 0,transparent 28%),var(--bg)}
+button{font:inherit}.app{width:min(920px,94vw);margin:auto;padding:28px 0 50px}
+header{text-align:center;margin-bottom:20px}h1{margin:0;font-size:clamp(30px,7vw,52px);letter-spacing:2px}.subtitle{color:var(--muted);margin:8px 0 0}.date{margin-top:12px;color:#d8dcf0}
+.screen{background:rgba(18,22,42,.88);border:1px solid rgba(255,255,255,.12);border-radius:28px;padding:22px;box-shadow:0 20px 70px rgba(0,0,0,.35);backdrop-filter:blur(10px)}
+.card-wrap{perspective:1200px;display:flex;justify-content:center;margin:12px 0 22px}
+.card{width:min(410px,86vw);min-height:470px;position:relative;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+.card.flipped{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;border-radius:26px;padding:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;overflow:hidden}
+.back{background:linear-gradient(145deg,#1a1c4a,#37255f);border:2px solid rgba(255,255,255,.2)}.back .symbol{font-size:90px;animation:float 2.2s ease-in-out infinite}.back p{color:#d8dcf0}
+.front{transform:rotateY(180deg);background:linear-gradient(145deg,#161a33,#232b50);border:2px solid rgba(255,255,255,.18)}
+.rarity{font-weight:900;letter-spacing:4px;font-size:22px;color:var(--gold)}.name{font-size:34px;font-weight:900;margin:10px 0 4px}.badge{color:#dfe3ff;margin-bottom:18px}
+.stars{display:grid;gap:7px;width:100%;margin:5px 0 16px}.stat{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;background:rgba(255,255,255,.06);border-radius:12px}
+.luck{font-size:20px;margin:8px 0 14px}.notice{font-size:14px;line-height:1.7;color:#dce1f8}
+.actions{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}.btn{border:0;border-radius:999px;padding:13px 22px;color:white;background:linear-gradient(135deg,#7867ff,#a15cff);cursor:pointer;font-weight:800;box-shadow:0 8px 24px rgba(120,103,255,.3)}.btn.secondary{background:#252b49;box-shadow:none}.btn.danger{background:#642b3a;box-shadow:none}.btn:disabled{opacity:.45;cursor:not-allowed}
+.status{text-align:center;color:var(--muted);min-height:24px;margin:12px 0}.history{margin-top:22px;display:none}.history.show{display:block}.history h2{margin:0 0 12px}
+.item{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:13px 14px;background:rgba(255,255,255,.05);border-radius:15px;margin:8px 0;cursor:pointer}.item small{color:var(--muted)}.empty{color:var(--muted);text-align:center;padding:20px}
+.overlay{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(3,5,12,.78);z-index:10}.overlay.show{display:flex}.loader{text-align:center}.loader .orb{font-size:80px;animation:spin 1.1s linear infinite}.loader p{font-size:20px}
+.spark{position:absolute;width:6px;height:6px;border-radius:50%;background:white;animation:burst 1s ease-out forwards;pointer-events:none}
+@keyframes spin{to{transform:rotate(360deg)}}@keyframes float{50%{transform:translateY(-12px) rotate(3deg)}}@keyframes burst{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--x),var(--y)) scale(0);opacity:0}}
+@media(max-width:560px){.screen{padding:14px;border-radius:22px}.card{min-height:520px}.name{font-size:29px}.stat{font-size:14px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header><h1>✨ DAILY FORTUNE</h1><div class="subtitle">每日運勢抽卡</div><div class="date" id="date"></div></header>
+<main class="screen">
+<div class="card-wrap" id="cardWrap"><div class="card" id="card">
+<div class="face back"><div class="symbol">🎴</div><h2>今日運勢卡</h2><p>翻開卡片，看看今天的命運吧。</p></div>
+<div class="face front" id="front"></div>
+</div></div>
+<div class="status" id="status"></div>
+<div class="actions"><button class="btn" id="drawBtn">🎴 開始抽卡</button><button class="btn secondary" id="historyBtn">📖 抽卡紀錄</button></div>
+<section class="history" id="history"><h2>📖 我的抽卡紀錄</h2><div id="historyList"></div><div class="actions"><button class="btn danger" id="clearBtn">🗑️ 清除歷史紀錄</button></div></section>
+</main></div>
+<div class="overlay" id="overlay"><div class="loader"><div class="orb">🎴</div><p id="loadingText">命運判定中……</p></div></div>
+<script>
+const CARDS=[{"name": "星辰指引", "rarity": "SS"}, {"name": "太陽之光", "rarity": "SS"}, {"name": "命運轉輪", "rarity": "SS"}, {"name": "彩虹彼端", "rarity": "SS"}, {"name": "晨曦降臨", "rarity": "SS"}, {"name": "幸運旅人", "rarity": "S"}, {"name": "月光祝福", "rarity": "S"}, {"name": "流星願望", "rarity": "S"}, {"name": "黃金時刻", "rarity": "S"}, {"name": "風之訊息", "rarity": "S"}, {"name": "勇氣之心", "rarity": "S"}, {"name": "花開之日", "rarity": "S"}, {"name": "幸運四葉", "rarity": "S"}, {"name": "晴空萬里", "rarity": "A"}, {"name": "微風拂面", "rarity": "A"}, {"name": "新芽", "rarity": "A"}, {"name": "晨光", "rarity": "A"}, {"name": "星河", "rarity": "A"}, {"name": "暖陽", "rarity": "A"}, {"name": "好消息", "rarity": "A"}, {"name": "順流", "rarity": "A"}, {"name": "小小奇蹟", "rarity": "A"}, {"name": "銀色月光", "rarity": "A"}, {"name": "旅途順風", "rarity": "A"}, {"name": "希望種子", "rarity": "A"}, {"name": "午後微風", "rarity": "B"}, {"name": "平穩航行", "rarity": "B"}, {"name": "日常好事", "rarity": "B"}, {"name": "慢慢發光", "rarity": "B"}, {"name": "輕裝前行", "rarity": "B"}, {"name": "恰到好處", "rarity": "B"}, {"name": "雲間縫隙", "rarity": "B"}, {"name": "溫柔提醒", "rarity": "B"}, {"name": "普通的一天", "rarity": "B"}, {"name": "水面微光", "rarity": "B"}, {"name": "踏實一步", "rarity": "B"}, {"name": "不疾不徐", "rarity": "B"}, {"name": "雨後小路", "rarity": "C"}, {"name": "迷霧之中", "rarity": "C"}, {"name": "等待時機", "rarity": "C"}, {"name": "小心前行", "rarity": "C"}, {"name": "情緒氣象", "rarity": "C"}, {"name": "重新整理", "rarity": "C"}, {"name": "暫停一下", "rarity": "C"}, {"name": "安靜角落", "rarity": "C"}, {"name": "逆風而行", "rarity": "D"}, {"name": "低調行動", "rarity": "D"}, {"name": "謹慎一步", "rarity": "D"}, {"name": "烏雲散去前", "rarity": "D"}, {"name": "沉澱時光", "rarity": "D"}], RANGES={"SS": [4, 5, 90, 100], "S": [4, 5, 80, 99], "A": [3, 5, 65, 89], "B": [2, 4, 45, 74], "C": [1, 4, 25, 59], "D": [1, 3, 1, 39]}, POSITIVE=["今天適合主動把握機會，先踏出第一步，事情往往會比想像中順利。", "保持平常心，你可能在意想不到的地方遇到小小的好消息。", "今天的努力容易被看見，適合完成一件一直想做的事情。", "與其等待完美時機，不如先開始；今天行動會比猶豫更有收穫。", "今天適合和熟悉的人交流，簡單的一句話也可能帶來好心情。", "把注意力放在眼前最重要的事情上，你會發現進度比預期更快。"], NEUTRAL=["今天適合維持原本的節奏，不必急著一次完成所有事情。", "如果遇到不確定的選擇，可以先整理資訊，再做決定。", "小事也值得耐心處理，穩穩完成比追求速度更重要。", "今天可能有一些臨時變化，保持彈性會比硬撐原計畫更輕鬆。", "適度休息能讓效率更好，不需要把每一分鐘都安排得很滿。", "先完成最重要的一件事，再處理其他事情，會比較不容易分心。"], CAUTION=["今天容易因為一時衝動而做決定，重要事情可以多想幾分鐘。", "如果感覺事情卡住了，先休息一下再重新開始，別急著否定自己。", "與人溝通時多聽一點，避免因為語氣或誤會造成不必要的摩擦。", "今天不適合把所有事情都塞在一起，留一些時間給突發狀況。", "遇到不順利的情況時，先確認細節，再判斷下一步怎麼做。", "不要因為一次小失誤就放棄整件事情，調整後再試一次即可。"];
+const STORE="dailyFortuneV1";
+const today=()=>{const d=new Date();return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")};
+const date=today();document.getElementById("date").textContent=date.replaceAll("-"," / ");
+function load(){try{return JSON.parse(localStorage.getItem(STORE))||{records:{}}}catch(e){return{records:{}}}}
+function save(x){localStorage.setItem(STORE,JSON.stringify(x))}
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++)h=Math.imul(h^s.charCodeAt(i),16777619);return h>>>0}
+function rng(seed){return()=>{seed+=0x6D2B79F5;let t=seed;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function pick(r,a){return a[Math.floor(r()*a.length)]}function integer(r,a,b){return Math.floor(r()*(b-a+1))+a}function stars(n){return"★".repeat(n)+"☆".repeat(5-n)}
+function make(card){const r=Math.random,q=RANGES[card.rarity];const x={...card,total:integer(r,q[0],q[1]),love:integer(r,q[0],q[1]),study:integer(r,q[0],q[1]),sport:integer(r,q[0],q[1]),social:integer(r,q[0],q[1]),luck:integer(r,q[2],q[3])};const avg=(x.total+x.love+x.study+x.sport+x.social)/5;x.notice=avg>=4.2?pick(r,POSITIVE):avg>=3?pick(r,NEUTRAL):pick(r,CAUTION);x.date=date;return x}
+function render(x){document.getElementById("front").innerHTML=`<div class="rarity">${x.rarity}</div><div class="name">${x.name}</div><div class="badge">${x.rarity==="SS"?"超級幸運":x.rarity==="S"?"大吉":x.rarity==="A"?"吉":x.rarity==="B"?"小吉":x.rarity==="C"?"普通":"需要注意"}</div><div class="stars"><div class="stat"><span>🌟 今日總運</span><b>${stars(x.total)}</b></div><div class="stat"><span>❤️ 愛情</span><b>${stars(x.love)}</b></div><div class="stat"><span>📚 學業</span><b>${stars(x.study)}</b></div><div class="stat"><span>🏀 運動</span><b>${stars(x.sport)}</b></div><div class="stat"><span>👥 人際</span><b>${stars(x.social)}</b></div></div><div class="luck">🍀 幸運指數：<b>${x.luck} / 100</b></div><div class="notice">⚠️ <b>今日注意事項</b><br>${x.notice}</div>`}
+function showToday(){const x=load().records[date];if(x){render(x);document.getElementById("card").classList.add("flipped");document.getElementById("status").textContent="✨ 今日運勢已揭曉，明天再來抽新的運勢吧！";document.getElementById("drawBtn").textContent="✨ 今日運勢已揭曉";document.getElementById("drawBtn").disabled=true}else document.getElementById("status").textContent="今天還沒有抽卡，準備好接受命運了嗎？"}
+async function draw(){const d=load();if(d.records[date])return;const o=document.getElementById("overlay");o.classList.add("show");for(const t of["命運判定中……","正在洗牌……","尋找你的今日卡片……","✨ 即將揭曉！"]){document.getElementById("loadingText").textContent=t;await new Promise(r=>setTimeout(r,520))}const c=CARDS[Math.floor(Math.random()*CARDS.length)],x=make(c);d.records[date]=x;save(d);render(x);o.classList.remove("show");document.getElementById("card").classList.add("flipped");document.getElementById("status").textContent="🎉 抽卡完成！今天的結果已經保存。";document.getElementById("drawBtn").textContent="✨ 今日運勢已揭曉";document.getElementById("drawBtn").disabled=true;burst()}
+function burst(){const w=document.getElementById("cardWrap");for(let i=0;i<26;i++){const s=document.createElement("span");s.className="spark";s.style.left="50%";s.style.top="50%";s.style.setProperty("--x",(Math.random()*260-130)+"px");s.style.setProperty("--y",(Math.random()*260-130)+"px");w.appendChild(s);setTimeout(()=>s.remove(),1100)}}
+function history(){const list=document.getElementById("historyList"),rs=Object.values(load().records).sort((a,b)=>b.date.localeCompare(a.date));if(!rs.length){list.innerHTML='<div class="empty">目前還沒有抽卡紀錄。</div>';return}list.innerHTML=rs.map(x=>`<div class="item" data-date="${x.date}"><div><b>${x.date}</b><br><span>${x.rarity}｜${x.name}</span></div><small>🍀 ${x.luck}</small></div>`).join("");list.querySelectorAll(".item").forEach(e=>e.onclick=()=>{const x=load().records[e.dataset.date];render(x);document.getElementById("card").classList.add("flipped");document.getElementById("status").textContent="📖 已載入歷史抽卡結果："+x.date})}
+document.getElementById("drawBtn").onclick=draw;
+document.getElementById("historyBtn").onclick=()=>{document.getElementById("history").classList.toggle("show");history()};
+document.getElementById("clearBtn").onclick=()=>{if(confirm("確定要清除所有抽卡紀錄嗎？此操作無法復原。")){localStorage.removeItem(STORE);location.reload()}};
+showToday();
+</script></body></html>
